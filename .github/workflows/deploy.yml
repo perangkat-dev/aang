@@ -1,4 +1,4 @@
-name: Deploy ke InfinityFree
+name: Deploy Laravel ke InfinityFree
 
 on:
   push:
@@ -6,17 +6,47 @@ on:
       - main
 
 jobs:
-  ftp-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Upload ke InfinityFree via FTP
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install dependencies
+        working-directory: ./src
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Buat file .env produksi
+        working-directory: ./src
+        run: |
+          echo "APP_NAME=Laravel" > .env
+          echo "APP_ENV=production" >> .env
+          echo "APP_KEY=" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "APP_URL=https://aang.xo.je" >> .env
+
+      - name: Generate app key
+        working-directory: ./src
+        run: php artisan key:generate
+
+      - name: Jalankan build cache
+        working-directory: ./src
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      - name: Deploy ke InfinityFree via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.2
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./src/public/
           server-dir: /htdocs/
-          local-dir: ./
